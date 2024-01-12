@@ -14,109 +14,62 @@ import (
 	"github.com/pocketbase/pocketbase/tools/types"
 )
 
-// func CreateNewCollection(pb  &pocketbase.PocketBase) {
-//     collection := &models.Collection{
-//     Name:       "example",
-//     Type:       models.CollectionTypeBase,
-//     ListRule:   nil,
-//     ViewRule:   types.Pointer("@request.auth.id != ''"),
-//     CreateRule: types.Pointer(""),
-//     UpdateRule: types.Pointer("@request.auth.id != ''"),
-//     DeleteRule: nil,
-//     Schema:     schema.NewSchema(
-//         &schema.SchemaField{
-//             Name:     "title",
-//             Type:     schema.FieldTypeText,
-//             Required: true,
-//             Options:  &schema.TextOptions{
-//                 Max: types.Pointer(10),
-//             },
-//         },
-//         &schema.SchemaField{
-//             Name:     "user",
-//             Type:     schema.FieldTypeRelation,
-//             Required: true,
-//             Options:  &schema.RelationOptions{
-//                 MaxSelect:     types.Pointer(1),
-//                 CollectionId:  "ae40239d2bc4477",
-//                 CascadeDelete: true,
-//             },
-//         },
-//     ),
-//     Indexes: types.JsonArray[string]{
-//         "CREATE UNIQUE INDEX idx_user ON example (user)",
-//         },
-//     }
+func AddRouteHello(e *core.ServeEvent)  {
+	e.Router.AddRoute(echo.Route{
+		Method: http.MethodGet,
+		Path:   "/hello",
+		Handler: func(c echo.Context) error {
+			return c.String(200, "Hello world!")
+		},
+		Middlewares: []echo.MiddlewareFunc{
+			apis.ActivityLogger(e.App),
+		},
+	})
+}
 
-//     if err := pb.Dao().SaveCollection(collection); err != nil {
-//     	log.Fatal(err)
-//     }
-// }
+func CreateCollection(e *core.ServeEvent, name string) error {
+	_ , err := e.App.Dao().FindCollectionByNameOrId(name)
+
+	if err != nil {
+		log.Println(err)
+	} else {
+		log.Println("Collection '" + name + "' is already exist!")
+		return nil
+	}
+
+	collection := &models.Collection{
+		Name:       name,
+		Type:       models.CollectionTypeBase,
+		ListRule:   nil,
+		DeleteRule: nil,
+		Schema: schema.NewSchema(
+			&schema.SchemaField{
+				Name:     "title",
+				Type:     schema.FieldTypeText,
+				Required: true,
+				Options: &schema.TextOptions{
+					Max: types.Pointer(10),
+				},
+			},
+		),
+	}
+
+	if err := e.App.Dao().SaveCollection(collection); err != nil {
+		log.Println("Not able to save collection '" + name + "'")
+		log.Fatal(err)
+	}
+
+	return nil
+}
 
 func main() {
 	app := pocketbase.New()
 
 	app.OnBeforeServe().Add(func(e *core.ServeEvent) error {
-		// add new "GET /hello" route to the app router (echo)
-        e.Router.AddRoute(echo.Route{
-            Method: http.MethodGet,
-            Path:   "/hello",
-            Handler: func(c echo.Context) error {
-                return c.String(200, "Hello world!")
-            },
-            Middlewares: []echo.MiddlewareFunc{
-                apis.ActivityLogger(app),
-            },
-        })
+		AddRouteHello(e)
 
-		_ , err := app.Dao().FindCollectionByNameOrId("example")
-
-		if err != nil {
-            log.Println("errrr 1111")
-            log.Println(err)
-		} else {
-            log.Println("Collection example is already exist!")
-            return nil
-        }
-
-		collection := &models.Collection{
-			Name:       "example",
-			Type:       models.CollectionTypeBase,
-			ListRule:   nil,
-			ViewRule:   types.Pointer("@request.auth.id != ''"),
-			CreateRule: types.Pointer(""),
-			UpdateRule: types.Pointer("@request.auth.id != ''"),
-			DeleteRule: nil,
-			Schema: schema.NewSchema(
-				&schema.SchemaField{
-					Name:     "title",
-					Type:     schema.FieldTypeText,
-					Required: true,
-					Options: &schema.TextOptions{
-						Max: types.Pointer(10),
-					},
-				},
-				&schema.SchemaField{
-					Name:     "user",
-					Type:     schema.FieldTypeRelation,
-					Required: true,
-					Options: &schema.RelationOptions{
-						MaxSelect:     types.Pointer(1),
-						CollectionId:  "ae40239d2bc4477",
-						CascadeDelete: true,
-					},
-				},
-			),
-			Indexes: types.JsonArray[string]{
-				"CREATE UNIQUE INDEX idx_user ON example (user)",
-			},
-		}
-
-		if err := e.App.Dao().SaveCollection(collection); err != nil {
-            log.Println("xxxx")
-			log.Fatal(err)
-		}
-
+		CreateCollection(e, "example")
+		
 		return nil
 	})
 
